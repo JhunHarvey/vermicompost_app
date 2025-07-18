@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "964054206339",
+    "firebase_url": "https://tempsensordata-ccb3f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "tempsensordata-ccb3f",
+    "storage_bucket": "tempsensordata-ccb3f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:964054206339:android:bcd213ae362865e5cbd8b6",
+        "android_client_info": {
+          "package_name": "com.example.vc_monitoring_systemv1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrQEW3Z-hBBW81zSFQP6SEAHwNluSrALM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
