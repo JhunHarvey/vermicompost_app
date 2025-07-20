@@ -261,7 +261,7 @@ class DetailPage extends StatelessWidget {
         title: Text(title),
         backgroundColor: Colors.green[800],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -444,8 +444,8 @@ class DetailPage extends StatelessWidget {
             ),
 
             
-            const Spacer(),
-            
+            const SizedBox(height: 24),
+
             // Back button
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
