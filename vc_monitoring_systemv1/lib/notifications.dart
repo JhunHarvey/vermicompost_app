@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'notification_service.dart';
 
 class notifications extends StatefulWidget {
   const notifications({super.key});
@@ -9,9 +11,9 @@ class notifications extends StatefulWidget {
 
 class NotificationTabState extends State<notifications> {
   bool showUnreadOnly = true;
-
-  // Make notifications static so it persists across widget rebuilds/tabs
-  static final List<NotificationItem> _notifications = [
+  late StreamSubscription<NotificationItem> _notificationSubscription;
+  final NotificationService _notificationService = NotificationService();
+  List<NotificationItem> _notifications = [
     NotificationItem(
       title: "Low Moisture Alert",
       message: "Alert: Moisture Level is below 60% - Compost is too dry",
@@ -44,13 +46,34 @@ class NotificationTabState extends State<notifications> {
     ),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with existing notifications
+    _notifications = _notificationService.notificationHistory;
+    
+    // Subscribe to new notifications
+    _notificationSubscription = _notificationService.notificationStream.listen((notification) {
+      if (mounted) {
+        setState(() {
+          _notifications.insert(0, notification);
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription.cancel();
+    super.dispose();
+  }
+
   List<NotificationItem> get notifications => _notifications;
 
   List<NotificationItem> get filteredNotifications {
-    if (showUnreadOnly) {
-      return notifications.where((notif) => notif.isUnread).toList();
-    }
-    return notifications;
+    return showUnreadOnly 
+        ? _notifications.where((notif) => notif.isUnread).toList()
+        : _notifications;
   }
 
   void _showMarkAllAsReadDialog() {
@@ -74,7 +97,10 @@ class NotificationTabState extends State<notifications> {
               onPressed: () {
                 setState(() {
                   for (var notification in notifications) {
-                    notification.isUnread = false;
+                    if (notification.isUnread) {
+                      NotificationService().markAsRead(notification);
+                      notification.isUnread = false;
+                    }
                   }
                 });
                 Navigator.of(context).pop();
@@ -116,7 +142,8 @@ class NotificationTabState extends State<notifications> {
               child: Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
+                await NotificationService().clearAllNotifications(); // Add this line
                 setState(() {
                   notifications.clear();
                 });
@@ -437,7 +464,8 @@ class NotificationCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: () {
             if (notification.isUnread) {
-              onMarkAsRead();
+              NotificationService().markAsRead(notification); // Add this line
+              onMarkAsRead(); // Keep this line
             }
           },
           child: Padding(
@@ -537,7 +565,10 @@ class NotificationCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(20),
-                          onTap: onMarkAsRead,
+                          onTap: () {
+                            NotificationService().markAsRead(notification);
+                            onMarkAsRead();
+                          },
                           child: Padding(
                             padding: EdgeInsets.all(8),
                             child: Icon(
@@ -558,7 +589,10 @@ class NotificationCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(20),
-                                onTap: onMarkAsRead,
+                                onTap: () {
+                                  NotificationService().markAsRead(notification);
+                                  onMarkAsRead();
+                                },
                                 child: Padding(
                                   padding: EdgeInsets.all(8),
                                   child: Icon(
@@ -597,18 +631,4 @@ class NotificationCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class NotificationItem {
-  final String title;
-  final String message;
-  final String time;
-  bool isUnread;
-
-  NotificationItem({
-    required this.title,
-    required this.message,
-    required this.time,
-    required this.isUnread,
-  });
 }

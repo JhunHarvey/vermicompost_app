@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'notification_service.dart';
+
 
 class HomePage extends StatefulWidget {
   final bool valveOpen;
@@ -15,56 +19,22 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final Map<String, dynamic> mockData = {
-    'Moisture': {
-      'value': 65, 
-      'unit': '%', 
-      'icon': Icons.water_drop, 
-      'color': Colors.blue[700],
-    },
-    'Temperature': {
-      'value': 24, 
-      'unit': '°C', 
-      'icon': Icons.thermostat, 
-      'color': Colors.red[700],
-    },
-    'Water Level': {
-      'value': 80, 
-      'unit': '%', 
-      'icon': Icons.propane_tank_sharp, 
-      'color': Colors.lightBlue[400],
-    },
-    'Vermitea Level': {
-      'value': 45, 
-      'unit': '%', 
-      'icon': Icons.local_drink, 
-      'color': Colors.orange[200],
-    },
-  };
+  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref('sensorData/latest');
+  bool _valveOpen = false;
+  Map<String, dynamic>? _lastSensorData;
+  final NotificationService _notificationService = NotificationService();
+  bool _initializedNotifications = false;
 
-  void _navigateToDetailPage(BuildContext context, String title) {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 500),
-        pageBuilder: (context, animation, secondaryAnimation) => DetailPage(
-          title: title,
-          data: mockData[title],
-        ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.0, 0.3),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _valveOpen = widget.valveOpen;
+    _initializeNotifications();
+  }
+
+  Future<void> _initializeNotifications() async {
+    await _notificationService.initialize();
+    _initializedNotifications = true;
   }
 
   @override
@@ -84,19 +54,82 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          Flexible(
-            child: GridView.count(
-              crossAxisCount: 2,
-              padding: const EdgeInsets.all(16.0),
-              childAspectRatio: 1.0,
-              mainAxisSpacing: 16.0,
-              crossAxisSpacing: 16.0,
-              children: [
-                _buildMonitoringCard('Moisture', context),
-                _buildMonitoringCard('Temperature', context),
-                _buildMonitoringCard('Water Level', context),
-                _buildMonitoringCard('Vermitea Level', context),
-              ],
+          Expanded(
+            child: StreamBuilder<DatabaseEvent>(
+              stream: _dbRef.onValue,
+              builder: (context, snapshot) {
+                // Only show loading spinner if no data has ever been received
+                if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+                  if (_lastSensorData == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                }
+
+                // If new data is available, update the cache
+                if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+                  _lastSensorData = Map<String, dynamic>.from(snapshot.data!.snapshot.value as Map);
+                }
+
+                // Use cached data if available
+                final data = _lastSensorData ?? {};
+
+                // Parse and clean values
+                double moisture = double.tryParse((data['soilMoisture'] ?? '0').toString().split(' ').first) ?? 0;
+                double temperature = double.tryParse((data['temperature'] ?? '0').toString().split(' ').first) ?? 0;
+                double waterLevel = double.tryParse((data['distance1'] ?? '0').toString().split(' ').first) ?? 0;
+                double vermiteaLevel = double.tryParse((data['distance2'] ?? '0').toString().split(' ').first) ?? 0;
+
+                if (_initializedNotifications && _lastSensorData != null) {
+                  _notificationService.checkSensorValuesAndNotify(
+                    moisture: moisture,
+                    temperature: temperature,
+                    waterLevel: waterLevel,
+                    vermiteaLevel: vermiteaLevel,
+                  );
+                }
+
+                // Prepare card data
+                final cardData = {
+                  'Moisture': {
+                    'icon': Icons.water,
+                    'color': Colors.blue,
+                    'value': moisture,
+                    'unit': '%',
+                  },
+                  'Temperature': {
+                    'icon': Icons.thermostat,
+                    'color': Colors.red,
+                    'value': temperature,
+                    'unit': '°C',
+                  },
+                  'Water Level': {
+                    'icon': Icons.opacity,
+                    'color': Colors.lightBlue,
+                    'value': waterLevel,
+                    'unit': waterLevel >= 100 ? ' m' : ' cm',
+                  },
+                  'Vermitea Level': {
+                    'icon': Icons.local_drink,
+                    'color': Colors.orange,
+                    'value': vermiteaLevel,
+                    'unit': vermiteaLevel >= 100 ? ' m' : ' cm',
+                  },
+                };
+
+                return GridView.count(
+                  crossAxisCount: 2,
+                  padding: const EdgeInsets.all(16.0),
+                  childAspectRatio: 1.0,
+                  mainAxisSpacing: 16.0,
+                  crossAxisSpacing: 16.0,
+                  children: [
+                    _buildMonitoringCard('Moisture', context, cardData['Moisture']!),
+                    _buildMonitoringCard('Temperature', context, cardData['Temperature']!),
+                    _buildMonitoringCard('Water Level', context, cardData['Water Level']!),
+                    _buildMonitoringCard('Vermitea Level', context, cardData['Vermitea Level']!),
+                  ],
+                );
+              },
             ),
           ),
           _buildValveControlSection(),
@@ -106,17 +139,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMonitoringCard(String title, BuildContext context) {
-    final data = mockData[title];
-
-    // Define gradient based on category (you can customize each if desired)
+  Widget _buildMonitoringCard(String title, BuildContext context, Map<String, dynamic> data) {
     final List<Color> gradientColors = [
       (data['color'] as Color).withOpacity(0.2),
       Colors.white,
     ];
 
     return InkWell(
-      onTap: () => _navigateToDetailPage(context, title),
+      onTap: () => _navigateToDetailPage(context, title, data),
       borderRadius: BorderRadius.circular(16.0),
       child: Card(
         elevation: 4,
@@ -163,6 +193,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _navigateToDetailPage(BuildContext context, String title, Map<String, dynamic> data) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailPage(title: title, data: data),
+      ),
+    );
+  }
 
   Widget _buildValveControlSection() {
     return Padding(
@@ -172,7 +210,7 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.all(20.0),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: widget.valveOpen
+            colors: _valveOpen
                 ? [Colors.green[300]!, Colors.green[100]!]
                 : [Colors.red[200]!, Colors.red[50]!],
             begin: Alignment.topLeft,
@@ -189,15 +227,12 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Row(
           children: [
-            // Valve Icon
             Icon(
               Icons.power_settings_new,
               size: 40,
-              color: widget.valveOpen ? Colors.green[900] : Colors.red[900],
+              color: _valveOpen ? Colors.green[900] : Colors.red[900],
             ),
             const SizedBox(width: 16),
-
-            // Valve Info Texts
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +242,7 @@ class _HomePageState extends State<HomePage> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: widget.valveOpen ? Colors.green[900] : Colors.red[900],
+                      color: _valveOpen ? Colors.green[900] : Colors.red[900],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -216,11 +251,11 @@ class _HomePageState extends State<HomePage> {
                     transitionBuilder: (child, animation) =>
                         FadeTransition(opacity: animation, child: child),
                     child: Text(
-                      widget.valveOpen ? 'The valve is OPEN' : 'The valve is CLOSED',
-                      key: ValueKey(widget.valveOpen),
+                      _valveOpen ? 'The valve is OPEN' : 'The valve is CLOSED',
+                      key: ValueKey(_valveOpen),
                       style: TextStyle(
                         fontSize: 16,
-                        color: widget.valveOpen ? Colors.green[800] : Colors.red[800],
+                        color: _valveOpen ? Colors.green[800] : Colors.red[800],
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -228,11 +263,12 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-
-            // Switch Button
             Switch(
-              value: widget.valveOpen,
+              value: _valveOpen,
               onChanged: (value) {
+                setState(() {
+                  _valveOpen = value;
+                });
                 widget.onValveToggle(value);
               },
               activeColor: Colors.green[700],

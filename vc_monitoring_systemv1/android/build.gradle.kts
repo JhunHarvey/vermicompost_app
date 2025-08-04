@@ -27,3 +27,11 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+
+gradle.projectsEvaluated {
+    subprojects {
+        if (name == "app") {
+            apply(plugin = "com.google.gms.google-services")
+        }
+    }
+}
