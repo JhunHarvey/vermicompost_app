@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'notification_service.dart';
-
 
 class HomePage extends StatefulWidget {
   final bool valveOpen;
@@ -22,19 +19,11 @@ class _HomePageState extends State<HomePage> {
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref('sensorData/latest');
   bool _valveOpen = false;
   Map<String, dynamic>? _lastSensorData;
-  final NotificationService _notificationService = NotificationService();
-  bool _initializedNotifications = false;
 
   @override
   void initState() {
     super.initState();
     _valveOpen = widget.valveOpen;
-    _initializeNotifications();
-  }
-
-  Future<void> _initializeNotifications() async {
-    await _notificationService.initialize();
-    _initializedNotifications = true;
   }
 
   @override
@@ -58,43 +47,32 @@ class _HomePageState extends State<HomePage> {
             child: StreamBuilder<DatabaseEvent>(
               stream: _dbRef.onValue,
               builder: (context, snapshot) {
-                // Only show loading spinner if no data has ever been received
                 if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
                   if (_lastSensorData == null) {
                     return const Center(child: CircularProgressIndicator());
                   }
                 }
 
-                // If new data is available, update the cache
                 if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
                   _lastSensorData = Map<String, dynamic>.from(snapshot.data!.snapshot.value as Map);
                 }
 
-                // Use cached data if available
                 final data = _lastSensorData ?? {};
 
-                // Parse and clean values
-                double moisture = double.tryParse((data['soilMoisture'] ?? '0').toString().split(' ').first) ?? 0;
                 double temperature = double.tryParse((data['temperature'] ?? '0').toString().split(' ').first) ?? 0;
-                double waterLevel = double.tryParse((data['distance1'] ?? '0').toString().split(' ').first) ?? 0;
-                double vermiteaLevel = double.tryParse((data['distance2'] ?? '0').toString().split(' ').first) ?? 0;
+                double moisture1 = double.tryParse((data['soilMoisture1'] ?? '0').toString().split(' ').first) ?? 0;
+                double moisture2 = double.tryParse((data['soilMoisture2'] ?? '0').toString().split(' ').first) ?? 0;
+                double moisture = ((moisture1 + moisture2) / 2);
+                double waterLevel = double.tryParse((data['waterTankLevel'] ?? '0').toString().split(' ').first) ?? 0;
+                String vermiwashLevel = (data['vermiwashTankLevel'] ?? 'UNKNOWN').toString();
 
-                if (_initializedNotifications && _lastSensorData != null) {
-                  _notificationService.checkSensorValuesAndNotify(
-                    moisture: moisture,
-                    temperature: temperature,
-                    waterLevel: waterLevel,
-                    vermiteaLevel: vermiteaLevel,
-                  );
-                }
-
-                // Prepare card data
                 final cardData = {
-                  'Moisture': {
+                  'Soil Moisture': {
                     'icon': Icons.water,
                     'color': Colors.blue,
                     'value': moisture,
                     'unit': '%',
+                    'detail': 'Sensor 1: ${moisture1.toStringAsFixed(1)}% | Sensor 2: ${moisture2.toStringAsFixed(1)}%',
                   },
                   'Temperature': {
                     'icon': Icons.thermostat,
@@ -106,13 +84,13 @@ class _HomePageState extends State<HomePage> {
                     'icon': Icons.opacity,
                     'color': Colors.lightBlue,
                     'value': waterLevel,
-                    'unit': waterLevel >= 100 ? ' m' : ' cm',
+                    'unit': waterLevel >= 100 ? ' %' : ' %',
                   },
-                  'Vermitea Level': {
+                  'Vermiwash Level': {
                     'icon': Icons.local_drink,
                     'color': Colors.orange,
-                    'value': vermiteaLevel,
-                    'unit': vermiteaLevel >= 100 ? ' m' : ' cm',
+                    'value': vermiwashLevel,
+                    'unit': '',
                   },
                 };
 
@@ -123,10 +101,10 @@ class _HomePageState extends State<HomePage> {
                   mainAxisSpacing: 16.0,
                   crossAxisSpacing: 16.0,
                   children: [
-                    _buildMonitoringCard('Moisture', context, cardData['Moisture']!),
+                    _buildMonitoringCard('Soil Moisture', context, cardData['Soil Moisture']!),
                     _buildMonitoringCard('Temperature', context, cardData['Temperature']!),
                     _buildMonitoringCard('Water Level', context, cardData['Water Level']!),
-                    _buildMonitoringCard('Vermitea Level', context, cardData['Vermitea Level']!),
+                    _buildMonitoringCard('Vermiwash Level', context, cardData['Vermiwash Level']!),
                   ],
                 );
               },
@@ -145,52 +123,58 @@ class _HomePageState extends State<HomePage> {
       Colors.white,
     ];
 
-    return InkWell(
-      onTap: () => _navigateToDetailPage(context, title, data),
-      borderRadius: BorderRadius.circular(16.0),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(
+    final cardContent = Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16.0),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.0),
-            gradient: LinearGradient(
-              colors: gradientColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(data['icon'], size: 80, color: data['color']),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(data['icon'], size: 80, color: data['color']),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${data['value']}${data['unit']}',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${data['value']}${data['unit']}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
+
+    if (title == 'Vermiwash Level') {
+      return cardContent;
+    } else {
+      return InkWell(
+        onTap: () => _navigateToDetailPage(context, title, data),
+        borderRadius: BorderRadius.circular(16.0),
+        child: cardContent,
+      );
+    }
   }
 
   void _navigateToDetailPage(BuildContext context, String title, Map<String, dynamic> data) {
@@ -265,11 +249,18 @@ class _HomePageState extends State<HomePage> {
             ),
             Switch(
               value: _valveOpen,
-              onChanged: (value) {
+              onChanged: (value) async {
                 setState(() {
                   _valveOpen = value;
                 });
                 widget.onValveToggle(value);
+
+                try {
+                  await _dbRef.child('waterPump').set(value ? "ON" : "OFF");
+                  await _dbRef.child('manualOverride').set(value);
+                } catch (e) {
+                  print("Failed to update waterPump or manualOverride: $e");
+                }
               },
               activeColor: Colors.green[700],
               activeTrackColor: Colors.green[300],
@@ -292,7 +283,7 @@ class DetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.green[50], // Set same background as HomePage
+      backgroundColor: Colors.green[50],
       appBar: AppBar(
         title: Text(title),
         backgroundColor: Colors.green[800],
@@ -302,7 +293,6 @@ class DetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Top section with icon and value
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
@@ -328,14 +318,19 @@ class DetailPage extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (title == 'Soil Moisture' && data['detail'] != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      data['detail'],
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
                 ],
               ),
             ),
             
             const SizedBox(height: 24),
             
-            
-            // Recommendations/Details container
             Container(
               margin: const EdgeInsets.only(top: 4),
               padding: const EdgeInsets.all(16.0),
@@ -366,7 +361,7 @@ class DetailPage extends StatelessWidget {
                   _buildRecommendationText(data['value'], title),
                   const SizedBox(height: 16),
 
-                  if (title == 'Moisture') ...[
+                  if (title == 'Soil Moisture') ...[
                     const Divider(),
                     const SizedBox(height: 8),
                     const Text(
@@ -440,49 +435,21 @@ class DetailPage extends StatelessWidget {
                     _buildVermicompostingTip(
                       Icons.propane_tank,
                       'Keep it Filled',
-                      'Ensure the system doesn’t dry out during hot days. Regularly check levels.',
+                      'Ensure the system doesnt dry out during hot days. Regularly check levels.',
                     ),
                     _buildVermicompostingTip(
                       Icons.build,
                       'Overflow Risk',
                       'Avoid overfilling to prevent leaks and sensor misreadings.',
                     ),
-                  ] else if (title == 'Vermitea Level') ...[
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Vermitea Usage and Storage Tips:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.orange,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildVermicompostingTip(
-                      Icons.local_drink,
-                      'Freshness Matters',
-                      'Use vermitea within 24–48 hours for maximum microbial benefit.',
-                    ),
-                    _buildVermicompostingTip(
-                      Icons.science,
-                      'Brewing Tip',
-                      'Use dechlorinated water and aerate well for a quality vermitea batch.',
-                    ),
-                    _buildVermicompostingTip(
-                      Icons.spa,
-                      'Application',
-                      'Apply directly to plant roots or as foliar spray during early morning or late afternoon.',
-                    ),
-                  ],
+                  ]
+                  // Vermiwash Level block removed!
                 ],
               ),
             ),
 
-            
             const SizedBox(height: 24),
 
-            // Back button
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
@@ -508,11 +475,10 @@ class DetailPage extends StatelessWidget {
 
   Widget _buildRecommendationText(dynamic value, String title) {
     String recommendation = '';
-    // Convert value to double if it's not already
     double numericValue = value is int ? value.toDouble() : value;
     
     switch (title) {
-      case 'Moisture':
+      case 'Soil Moisture':
         if (numericValue < 30) {
           recommendation = 'The soil is too dry. Water the plants immediately.';
         } else if (numericValue < 50) {
@@ -545,15 +511,13 @@ class DetailPage extends StatelessWidget {
           recommendation = 'Water reservoir is full.';
         }
         break;
-      case 'Vermitea Level':
-        if (numericValue < 20) {
-          recommendation = 'Vermitea level critically low. Prepare more solution.';
-        } else if (numericValue < 40) {
-          recommendation = 'Vermitea level is moderate. Consider preparing more soon.';
-        } else if (numericValue < 60) {
-          recommendation = 'Good vermitea level. No immediate action needed.';
+      case 'Vermiwash Level':
+        if (value.toString().toUpperCase() == 'LOW') {
+          recommendation = 'Vermiwash level is LOW. Prepare more solution.';
+        } else if (value.toString().toUpperCase() == 'HIGH') {
+          recommendation = 'Vermiwash level is HIGH. No immediate action needed.';
         } else {
-          recommendation = 'Vermitea reservoir is full.';
+          recommendation = 'Vermiwash level status unknown.';
         }
         break;
       default:
@@ -568,6 +532,7 @@ class DetailPage extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildVermicompostingTip(IconData icon, String title, String description) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),

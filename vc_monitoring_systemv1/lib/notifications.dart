@@ -13,50 +13,27 @@ class NotificationTabState extends State<notifications> {
   bool showUnreadOnly = true;
   late StreamSubscription<NotificationItem> _notificationSubscription;
   final NotificationService _notificationService = NotificationService();
-  List<NotificationItem> _notifications = [
-    NotificationItem(
-      title: "Low Moisture Alert",
-      message: "Alert: Moisture Level is below 60% - Compost is too dry",
-      time: "now",
-      isUnread: true,
-    ),
-    NotificationItem(
-      title: "Low Water Tank Level",
-      message: "Alert: Water Tank Level is 20% - Refill the Tank",
-      time: "1 hour ago",
-      isUnread: true,
-    ),
-    NotificationItem(
-      title: "Low Water Tank Level",
-      message: "Alert: Water Tank Level is 20% - Refill the Tank",
-      time: "10 hours ago",
-      isUnread: false,
-    ),
-    NotificationItem(
-      title: "Vermitea Level Alert",
-      message: "Alert: Vermitea Level is 95% - Risk of overflow. Drain vermitea now.",
-      time: "1 day ago",
-      isUnread: false,
-    ),
-    NotificationItem(
-      title: "Vermitea Level Alert",
-      message: "Alert: Vermitea Level is 70% - Plan to use or store vermitea within 24 hours.",
-      time: "2 days ago",
-      isUnread: false,
-    ),
-  ];
+  List<NotificationItem> _notifications = []; // Start with empty list
 
   @override
   void initState() {
     super.initState();
-    // Initialize with existing notifications
-    _notifications = _notificationService.notificationHistory;
-    
+    // Initialize with existing notifications from service
+    _notifications = List<NotificationItem>.from(_notificationService.notificationHistory);
+
     // Subscribe to new notifications
     _notificationSubscription = _notificationService.notificationStream.listen((notification) {
       if (mounted) {
         setState(() {
-          _notifications.insert(0, notification);
+          // Check for duplicates before adding
+          bool alreadyExists = _notifications.any((n) =>
+            n.title == notification.title &&
+            n.message == notification.message &&
+            n.time == notification.time
+          );
+          if (!alreadyExists) {
+            _notifications.insert(0, notification);
+          }
         });
       }
     });
@@ -77,21 +54,21 @@ class NotificationTabState extends State<notifications> {
   }
 
   void _showMarkAllAsReadDialog() {
-    showDialog(
+    showDialog (
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          title: Text('Mark all as Read'),
-          content: Text('Are you sure to mark all as read?'),
+          title: const Text('Mark all as Read'),
+          content: const Text('Are you sure to mark all as read?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
@@ -106,8 +83,8 @@ class NotificationTabState extends State<notifications> {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('All notifications marked as read'),
-                    duration: Duration(seconds: 2),
+                    content: const Text('All notifications marked as read'),
+                    duration: const Duration(seconds: 2),
                     backgroundColor: Colors.green[400],
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -116,7 +93,7 @@ class NotificationTabState extends State<notifications> {
                   ),
                 );
               },
-              child: Text('Yes'),
+              child: const Text('Yes'),
             ),
           ],
         );
@@ -132,14 +109,14 @@ class NotificationTabState extends State<notifications> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          title: Text('Delete All Notifications'),
-          content: Text('Are you sure you want to delete all notifications?'),
+          title: const Text('Delete All Notifications'),
+          content: const Text('Are you sure you want to delete all notifications?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
@@ -150,8 +127,8 @@ class NotificationTabState extends State<notifications> {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('All notifications deleted'),
-                    duration: Duration(seconds: 2),
+                    content: const Text('All notifications deleted'),
+                    duration: const Duration(seconds: 2),
                     backgroundColor: Colors.red[400],
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -160,7 +137,7 @@ class NotificationTabState extends State<notifications> {
                   ),
                 );
               },
-              child: Text('Yes'),
+              child: const Text('Yes'),
             ),
           ],
         );
@@ -175,12 +152,12 @@ class NotificationTabState extends State<notifications> {
       child: Column(
         children: [
           Container(
-            padding: EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.green[50],
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F5E9), // Colors.green[50] as const
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.1),
+                  color: Color(0x1A000000), // Colors.grey.withAlpha(25) as const
                   spreadRadius: 0,
                   blurRadius: 4,
                   offset: Offset(0, 2),
@@ -193,7 +170,7 @@ class NotificationTabState extends State<notifications> {
                 // Stats row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                  children: [const 
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -206,40 +183,35 @@ class NotificationTabState extends State<notifications> {
                           ),
                         ),
                         SizedBox(height: 4),
-                        Text(
-                          '${notifications.where((n) => n.isUnread).length} unread',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
+                        // Can't use const for dynamic text
                       ],
                     ),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.green[200]!),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.all(Radius.circular(20)),
+                        // Can't use const for Border.all with dynamic color
                       ),
+                      // Can't use const for dynamic text
                       child: Text(
                         '${notifications.length} total',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.green[700],
+                          color: Colors.green,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 // Toggle buttons
                 Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.grey[300]!),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEEEEEE),
+                    borderRadius: BorderRadius.all(Radius.circular(30)),
+                    // Can't use const for Border.all with dynamic color
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -251,21 +223,21 @@ class NotificationTabState extends State<notifications> {
                           });
                         },
                         child: AnimatedContainer(
-                          duration: Duration(milliseconds: 200),
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           decoration: BoxDecoration(
                             color: showUnreadOnly ? Colors.green[400] : Colors.transparent,
-                            borderRadius: BorderRadius.circular(25),
+                            borderRadius: const BorderRadius.all(Radius.circular(25)),
                             boxShadow: showUnreadOnly
-                                ? [
+                                ? const [
                                     BoxShadow(
-                                      color: Colors.green.withValues(alpha: 0.3),
+                                      color: Color(0x4D388E3C), // Colors.green.withAlpha(77)
                                       spreadRadius: 0,
                                       blurRadius: 4,
                                       offset: Offset(0, 2),
                                     ),
                                   ]
-                                : [],
+                                : const [],
                           ),
                           child: Text(
                             "Unread",
@@ -283,21 +255,21 @@ class NotificationTabState extends State<notifications> {
                           });
                         },
                         child: AnimatedContainer(
-                          duration: Duration(milliseconds: 200),
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           decoration: BoxDecoration(
                             color: !showUnreadOnly ? Colors.green[400] : Colors.transparent,
-                            borderRadius: BorderRadius.circular(25),
+                            borderRadius: const BorderRadius.all(Radius.circular(25)),
                             boxShadow: !showUnreadOnly
-                                ? [
+                                ? const [
                                     BoxShadow(
-                                      color: Colors.green.withValues(alpha: 0.3),
+                                      color: Color(0x4D388E3C),
                                       spreadRadius: 0,
                                       blurRadius: 4,
                                       offset: Offset(0, 2),
                                     ),
                                   ]
-                                : [],
+                                : const [],
                           ),
                           child: Text(
                             "All",
@@ -319,21 +291,21 @@ class NotificationTabState extends State<notifications> {
             child: Container(
               color: Colors.green[50],
               child: filteredNotifications.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.notifications_off_outlined,
                             size: 64,
-                            color: Colors.grey[400],
+                            color: Colors.grey,
                           ),
                           SizedBox(height: 16),
                           Text(
                             'No notifications',
                             style: TextStyle(
                               fontSize: 18,
-                              color: Colors.grey[600],
+                              color: Colors.grey,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -342,14 +314,14 @@ class NotificationTabState extends State<notifications> {
                             'You\'re all caught up!',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey[500],
+                              color: Colors.grey,
                             ),
                           ),
                         ],
                       ),
                   )
                 : ListView.builder(
-                    padding: EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     itemCount: filteredNotifications.length,
                     itemBuilder: (context, index) {
                       final notification = filteredNotifications[index];
@@ -374,9 +346,9 @@ class NotificationTabState extends State<notifications> {
           // Action buttons
           if (filteredNotifications.isNotEmpty)
             Container(
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F5E9),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -386,14 +358,14 @@ class NotificationTabState extends State<notifications> {
                       onPressed: () {
                         _showMarkAllAsReadDialog();
                       },
-                      icon: Icon(Icons.done_all, size: 18),
-                      label: Text('Mark all as Read'),
+                      icon: const Icon(Icons.done_all, size: 18),
+                      label: const Text('Mark all as Read'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green[400],
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(25)),
                         ),
                         elevation: 2,
                       ),
@@ -403,14 +375,14 @@ class NotificationTabState extends State<notifications> {
                       onPressed: () {
                         _showDeleteAllDialog();
                       },
-                      icon: Icon(Icons.delete_sweep, size: 18),
-                      label: Text('Delete All'),
+                      icon: const Icon(Icons.delete_sweep, size: 18),
+                      label: const Text('Delete All'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red[400],
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(25)),
                         ),
                         elevation: 2,
                       ),
@@ -441,17 +413,14 @@ class NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: notification.isUnread ? Colors.green[200]! : Colors.grey[200]!,
-          width: notification.isUnread ? 2 : 1,
-        ),
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+        // Can't use const for Border.all with dynamic color
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
+            color: Color(0x1A000000),
             spreadRadius: 0,
             blurRadius: 8,
             offset: Offset(0, 2),
@@ -469,25 +438,25 @@ class NotificationCard extends StatelessWidget {
             }
           },
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(12),
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.notifications_outlined,
-                        color: Colors.green[600],
+                        color: Colors.green,
                         size: 20,
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,11 +469,11 @@ class NotificationCard extends StatelessWidget {
                               fontSize: 16,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
                             notification.time,
-                            style: TextStyle(
-                              color: Colors.grey[500],
+                            style: const TextStyle(
+                              color: Colors.grey,
                               fontSize: 12,
                             ),
                           ),
@@ -515,65 +484,65 @@ class NotificationCard extends StatelessWidget {
                       Container(
                         width: 10,
                         height: 10,
-                        decoration: BoxDecoration(
-                          color: Colors.red[400],
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
                           shape: BoxShape.circle,
                         ),
                       ),
                   ],
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFAFAFA),
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
                   ),
                   child: Text(
                     notification.message,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.black87,
                       fontSize: 14,
                       height: 1.4,
                     ),
                   ),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     if (notification.isUnread)
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red[50],
-                          borderRadius: BorderRadius.circular(12),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
                         ),
-                        child: Text(
+                        child: const Text(
                           'Unread',
                           style: TextStyle(
-                            color: Colors.red[600],
+                            color: Colors.red,
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
-                    Spacer(),
+                    const Spacer(),
                     // Action buttons
                     if (showUnreadOnly && notification.isUnread)
                       Material(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(20),
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: const BorderRadius.all(Radius.circular(20)),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: const BorderRadius.all(Radius.circular(20)),
                           onTap: () {
                             NotificationService().markAsRead(notification);
                             onMarkAsRead();
                           },
-                          child: Padding(
+                          child: const Padding(
                             padding: EdgeInsets.all(8),
                             child: Icon(
                               Icons.check_circle_outline,
-                              color: Colors.green[600],
+                              color: Colors.green,
                               size: 20,
                             ),
                           ),
@@ -585,36 +554,36 @@ class NotificationCard extends StatelessWidget {
                         children: [
                           if (notification.isUnread)
                             Material(
-                              color: Colors.green[50],
-                              borderRadius: BorderRadius.circular(20),
+                              color: const Color(0xFFE8F5E9),
+                              borderRadius: const BorderRadius.all(Radius.circular(20)),
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: const BorderRadius.all(Radius.circular(20)),
                                 onTap: () {
                                   NotificationService().markAsRead(notification);
                                   onMarkAsRead();
                                 },
-                                child: Padding(
+                                child: const Padding(
                                   padding: EdgeInsets.all(8),
                                   child: Icon(
                                     Icons.check_circle_outline,
-                                    color: Colors.green[600],
+                                    color: Colors.green,
                                     size: 20,
                                   ),
                                 ),
                               ),
                             ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Material(
-                            color: Colors.red[50],
-                            borderRadius: BorderRadius.circular(20),
+                            color: const Color(0xFFFFEBEE),
+                            borderRadius: const BorderRadius.all(Radius.circular(20)),
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: const BorderRadius.all(Radius.circular(20)),
                               onTap: onDelete,
-                              child: Padding(
+                              child: const Padding(
                                 padding: EdgeInsets.all(8),
                                 child: Icon(
                                   Icons.delete_outline,
-                                  color: Colors.red[600],
+                                  color: Colors.red,
                                   size: 20,
                                 ),
                               ),

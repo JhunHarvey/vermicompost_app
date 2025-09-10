@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'home_page.dart';
 import 'notifications.dart';
 import 'contacttab.dart';
 import 'notification_service.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'dart:async';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -83,22 +84,29 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   int _currentIndex = 0;
+  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref('sensorData/latest');
+  StreamSubscription<DatabaseEvent>? _sensorSubscription;
+  Map<String, dynamic>? _lastSensorData;
+  final NotificationService _notificationService = NotificationService();
+  bool _initializedNotifications = false;
   bool _valveOpen = false;
 
-@override
-void initState() {
-  super.initState();
+  @override
+  void initState() {
+    super.initState();
 
-  _fadeController = AnimationController(
-    duration: const Duration(milliseconds: 300),
-    vsync: this,
-  );
-  _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(_fadeController);
-  _fadeController.forward();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(_fadeController);
+    _fadeController.forward();
 
-  // 🔔 Initialize FCM and get token
-  _setupFCM();
-}
+    // 🔔 Initialize FCM and get token
+    _setupFCM();
+    _initializeNotifications();
+    _listenToSensorData();
+  }
 
   void _setupFCM() async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
@@ -116,7 +124,7 @@ void initState() {
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       String? token = await messaging.getToken();
-      print("🔑 FCM Token: $token");
+      print("FCM Token: $token");
 
       // TODO: Save token to your database here
       // Example if using Firebase Realtime Database:
@@ -137,9 +145,40 @@ void initState() {
     }
   }
 
+  Future<void> _initializeNotifications() async {
+    await _notificationService.initialize();
+    _initializedNotifications = true;
+  }
+
+  void _listenToSensorData() {
+    _sensorSubscription = _dbRef.onValue.listen((event) {
+      if (event.snapshot.value != null) {
+        _lastSensorData = Map<String, dynamic>.from(event.snapshot.value as Map);
+
+        // Parse sensor values
+        double temperature = double.tryParse((_lastSensorData?['temperature'] ?? '0').toString().split(' ').first) ?? 0;
+        double moisture1 = double.tryParse((_lastSensorData?['soilMoisture1'] ?? '0').toString().split(' ').first) ?? 0;
+        double moisture2 = double.tryParse((_lastSensorData?['soilMoisture2'] ?? '0').toString().split(' ').first) ?? 0;
+        double moisture = ((moisture1 + moisture2) / 2);
+        double waterLevel = double.tryParse((_lastSensorData?['waterTankLevel'] ?? '0').toString().split(' ').first) ?? 0;
+        String vermiwashLevel = (_lastSensorData?['vermiwashTankLevel'] ?? 'UNKNOWN').toString();
+
+        if (_initializedNotifications) {
+          _notificationService.checkSensorValuesAndNotify(
+            moisture: moisture,
+            temperature: temperature,
+            waterLevel: waterLevel,
+            vermiwashLevel: vermiwashLevel,
+          );
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _fadeController.dispose();
+    _sensorSubscription?.cancel();
     super.dispose();
   }
 
