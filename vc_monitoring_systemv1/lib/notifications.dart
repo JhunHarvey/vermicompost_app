@@ -25,15 +25,8 @@ class NotificationTabState extends State<notifications> {
     _notificationSubscription = _notificationService.notificationStream.listen((notification) {
       if (mounted) {
         setState(() {
-          // Check for duplicates before adding
-          bool alreadyExists = _notifications.any((n) =>
-            n.title == notification.title &&
-            n.message == notification.message &&
-            n.time == notification.time
-          );
-          if (!alreadyExists) {
-            _notifications.insert(0, notification);
-          }
+          // Always sync with the latest history
+          _notifications = List<NotificationItem>.from(_notificationService.notificationHistory);
         });
       }
     });
@@ -120,9 +113,9 @@ class NotificationTabState extends State<notifications> {
             ),
             TextButton(
               onPressed: () async {
-                await NotificationService().clearAllNotifications(); // Add this line
+                await NotificationService().clearAllNotifications();
                 setState(() {
-                  notifications.clear();
+                  _notifications.clear(); // <-- update this line
                 });
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(

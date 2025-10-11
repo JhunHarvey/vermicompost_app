@@ -154,46 +154,47 @@ class NotificationService {
   Future<void> checkSensorValuesAndNotify({
     required double moisture,
     required double temperature,
-    required double waterLevel,
+    required String waterLevel, // <-- Change to String
     required String vermiwashLevel,
   }) async {
-    // Use fixed keys for throttling
     // Moisture alerts
-    if (moisture < 60) {
+    if (moisture < 42) {
       await _throttledNotification(
         key: 'low_moisture',
         title: "Critical Moisture Alert",
         body: "Moisture is low at ${moisture.toStringAsFixed(1)}%",
+        cooldown: Duration(seconds: 15),
       );
-    } else if (moisture > 80) {
+    } else if (moisture > 60) {
       await _throttledNotification(
         key: 'high_moisture',
         title: "High Moisture Alert",
         body: "Moisture is high at ${moisture.toStringAsFixed(1)}%",
       );
     }
-
-    // Temperature alerts
+    
+        // Temperature alerts
     if (temperature < 15) {
       await _throttledNotification(
         key: 'low_temperature',
         title: "Low Temperature Alert",
         body: "Temperature is low at ${temperature.toStringAsFixed(1)}°C",
       );
-    } else if (temperature > 38) {
+    } else if (temperature > 35) {
       await _throttledNotification(
         key: 'high_temperature',
         title: "High Temperature Alert",
-        body: "Temperature is high at ${temperature.toStringAsFixed(1)}°C",
+        body: "Temperature is high at ${temperature.toStringAsFixed(1)}°C please cool or put shade to the compost bin",
       );
     }
 
-    // Water level alerts
-    if (waterLevel < 20) {
+    // Water level alerts (now string-based)
+    if (waterLevel.toUpperCase() == 'LOW') {
       await _throttledNotification(
         key: 'low_water_level',
         title: "Low Water Level",
-        body: "Water level is low at ${waterLevel.toStringAsFixed(1)} % please refill",
+        body: "Water level is LOW. Please refill.",
+        cooldown: Duration(seconds: 10), // Reduce cooldown
       );
     }
 
@@ -202,7 +203,7 @@ class NotificationService {
       await _throttledNotification(
         key: 'high_vermiwash_level',
         title: "High Vermiwash Level",
-        body: "Vermiwash level is HIGH. Please collect vermiwash.",
+        body: "Vermiwash storage is almost full.",
       );
     }
   }

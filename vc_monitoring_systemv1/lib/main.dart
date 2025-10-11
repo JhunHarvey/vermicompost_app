@@ -65,6 +65,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'PT Sans',
       ),
@@ -89,7 +90,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   Map<String, dynamic>? _lastSensorData;
   final NotificationService _notificationService = NotificationService();
   bool _initializedNotifications = false;
-  bool _valveOpen = false;
+  bool _pumpOn = false;
 
   @override
   void initState() {
@@ -157,17 +158,17 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
         // Parse sensor values
         double temperature = double.tryParse((_lastSensorData?['temperature'] ?? '0').toString().split(' ').first) ?? 0;
-        double moisture1 = double.tryParse((_lastSensorData?['soilMoisture1'] ?? '0').toString().split(' ').first) ?? 0;
-        double moisture2 = double.tryParse((_lastSensorData?['soilMoisture2'] ?? '0').toString().split(' ').first) ?? 0;
+        double moisture1 = double.tryParse((_lastSensorData?['CompostMoisture1'] ?? '0').toString().split(' ').first) ?? 0;
+        double moisture2 = double.tryParse((_lastSensorData?['CompostMoisture2'] ?? '0').toString().split(' ').first) ?? 0;
         double moisture = ((moisture1 + moisture2) / 2);
-        double waterLevel = double.tryParse((_lastSensorData?['waterTankLevel'] ?? '0').toString().split(' ').first) ?? 0;
+        String waterLevel = (_lastSensorData?['waterTankLevel'] ?? 'UNKNOWN').toString();
         String vermiwashLevel = (_lastSensorData?['vermiwashTankLevel'] ?? 'UNKNOWN').toString();
 
         if (_initializedNotifications) {
           _notificationService.checkSensorValuesAndNotify(
             moisture: moisture,
             temperature: temperature,
-            waterLevel: waterLevel,
+            waterLevel: waterLevel, // now a string
             vermiwashLevel: vermiwashLevel,
           );
         }
@@ -186,10 +187,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     switch (_currentIndex) {
       case 0:
         return HomePage(
-          valveOpen: _valveOpen,
-          onValveToggle: (value) {
+          pumpOn: _pumpOn,
+          onPumpToggle: (value) {
             setState(() {
-              _valveOpen = value;
+              _pumpOn = value;
             });
           },
         );

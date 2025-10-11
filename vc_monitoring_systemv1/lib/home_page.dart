@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class HomePage extends StatefulWidget {
-  final bool valveOpen;
-  final Function(bool) onValveToggle;
+  final bool pumpOn;
+  final Function(bool) onPumpToggle;
 
   const HomePage({
     super.key,
-    required this.valveOpen,
-    required this.onValveToggle,
+    required this.pumpOn,
+    required this.onPumpToggle,
   });
 
   @override
@@ -17,13 +17,37 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref('sensorData/latest');
-  bool _valveOpen = false;
+  bool _pumpOn = false;
+  bool _manualMode = false; // Add this for mode selection
   Map<String, dynamic>? _lastSensorData;
 
   @override
   void initState() {
     super.initState();
-    _valveOpen = widget.valveOpen;
+    _pumpOn = widget.pumpOn;
+    _fetchManualMode();
+  }
+
+  Future<void> _fetchManualMode() async {
+    final snapshot = await _dbRef.child('manualOverride').get();
+    setState(() {
+      _manualMode = snapshot.value == true;
+    });
+  }
+
+  Future<void> _setManualMode(bool manual) async {
+    setState(() {
+      _manualMode = manual;
+    });
+    await _dbRef.child('manualOverride').set(manual);
+  }
+
+  Future<void> _updatePumpState(bool value) async {
+    setState(() {
+      _pumpOn = value;
+    });
+    widget.onPumpToggle(value);
+    await _dbRef.child('waterPump').set(value ? "ON" : "OFF");
   }
 
   @override
@@ -55,19 +79,28 @@ class _HomePageState extends State<HomePage> {
 
                 if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
                   _lastSensorData = Map<String, dynamic>.from(snapshot.data!.snapshot.value as Map);
+                  // Update pump state from database if in automatic mode
+                  if (!_manualMode) {
+                    final pumpValue = _lastSensorData?['waterPump'];
+                    _pumpOn = pumpValue == "ON";
+                  }
                 }
 
                 final data = _lastSensorData ?? {};
 
                 double temperature = double.tryParse((data['temperature'] ?? '0').toString().split(' ').first) ?? 0;
-                double moisture1 = double.tryParse((data['soilMoisture1'] ?? '0').toString().split(' ').first) ?? 0;
-                double moisture2 = double.tryParse((data['soilMoisture2'] ?? '0').toString().split(' ').first) ?? 0;
+                double moisture1 = double.tryParse((data['CompostMoisture1'] ?? '0').toString().split(' ').first) ?? 0;
+                double moisture2 = double.tryParse((data['CompostMoisture2'] ?? '0').toString().split(' ').first) ?? 0;
                 double moisture = ((moisture1 + moisture2) / 2);
-                double waterLevel = double.tryParse((data['waterTankLevel'] ?? '0').toString().split(' ').first) ?? 0;
+                // Change this line:
+                // double waterLevel = double.tryParse((data['waterTankLevel'] ?? '0').toString().split(' ').first) ?? 0;
+                // String vermiwashLevel = (data['vermiwashTankLevel'] ?? 'UNKNOWN').toString();
+
+                String waterLevel = (data['waterTankLevel'] ?? 'UNKNOWN').toString();
                 String vermiwashLevel = (data['vermiwashTankLevel'] ?? 'UNKNOWN').toString();
 
                 final cardData = {
-                  'Soil Moisture': {
+                  'Compost Moisture': {
                     'icon': Icons.water,
                     'color': Colors.blue,
                     'value': moisture,
@@ -84,7 +117,7 @@ class _HomePageState extends State<HomePage> {
                     'icon': Icons.opacity,
                     'color': Colors.lightBlue,
                     'value': waterLevel,
-                    'unit': waterLevel >= 100 ? ' %' : ' %',
+                    'unit': '',
                   },
                   'Vermiwash Level': {
                     'icon': Icons.local_drink,
@@ -94,24 +127,38 @@ class _HomePageState extends State<HomePage> {
                   },
                 };
 
-                return GridView.count(
-                  crossAxisCount: 2,
-                  padding: const EdgeInsets.all(16.0),
-                  childAspectRatio: 1.0,
-                  mainAxisSpacing: 16.0,
-                  crossAxisSpacing: 16.0,
+                return Column(
                   children: [
-                    _buildMonitoringCard('Soil Moisture', context, cardData['Soil Moisture']!),
-                    _buildMonitoringCard('Temperature', context, cardData['Temperature']!),
-                    _buildMonitoringCard('Water Level', context, cardData['Water Level']!),
-                    _buildMonitoringCard('Vermiwash Level', context, cardData['Vermiwash Level']!),
+                    Expanded(
+                      child: GridView.count(
+                        crossAxisCount: 2,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), // Reduced bottom padding
+                        childAspectRatio: 1.0,
+                        mainAxisSpacing: 16.0,
+                        crossAxisSpacing: 16.0,
+                        children: [
+                          _buildMonitoringCard('Compost Moisture', context, cardData['Compost Moisture']!),
+                          _buildMonitoringCard('Temperature', context, cardData['Temperature']!),
+                          _buildMonitoringCard('Water Level', context, cardData['Water Level']!),
+                          _buildMonitoringCard('Vermiwash Level', context, cardData['Vermiwash Level']!),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0), // Reduced vertical padding
+                      child: Column(
+                        children: [
+                          _buildPumpControlSection(),
+                          _buildModeSwitch(),
+                        ],
+                      ),
+                    ),
                   ],
                 );
               },
             ),
           ),
-          _buildValveControlSection(),
-          const SizedBox(height: 80),
+          const SizedBox(height: 16), // Reduced from 80 to 16 for more space
         ],
       ),
     );
@@ -160,13 +207,26 @@ class _HomePageState extends State<HomePage> {
                   color: Colors.black87,
                 ),
               ),
+              // Show sensor details for Compost Moisture card
+              if (title == 'Compost Moisture' && data['detail'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  data['detail'],
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black54,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
 
-    if (title == 'Vermiwash Level') {
+    // Make both Water Level and Vermiwash Level NOT clickable
+    if (title == 'Vermiwash Level' || title == 'Water Level') {
       return cardContent;
     } else {
       return InkWell(
@@ -186,7 +246,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildValveControlSection() {
+  Widget _buildPumpControlSection() {
+    // Color logic for background
+    final List<Color> bgColors = _pumpOn
+        ? [Colors.green[300]!, Colors.green[100]!]
+        : [Colors.red[200]!, Colors.red[50]!];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
       child: AnimatedContainer(
@@ -194,9 +259,7 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.all(20.0),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: _valveOpen
-                ? [Colors.green[300]!, Colors.green[100]!]
-                : [Colors.red[200]!, Colors.red[50]!],
+            colors: bgColors,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -214,7 +277,7 @@ class _HomePageState extends State<HomePage> {
             Icon(
               Icons.power_settings_new,
               size: 40,
-              color: _valveOpen ? Colors.green[900] : Colors.red[900],
+              color: _pumpOn ? Colors.green[900] : Colors.red[900],
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -222,11 +285,11 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Valve Control',
+                    'Pump Control',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: _valveOpen ? Colors.green[900] : Colors.red[900],
+                      color: _pumpOn ? Colors.green[900] : Colors.red[900],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -235,11 +298,11 @@ class _HomePageState extends State<HomePage> {
                     transitionBuilder: (child, animation) =>
                         FadeTransition(opacity: animation, child: child),
                     child: Text(
-                      _valveOpen ? 'The valve is OPEN' : 'The valve is CLOSED',
-                      key: ValueKey(_valveOpen),
+                      _pumpOn ? 'The pump is ON' : 'The pump is OFF',
+                      key: ValueKey(_pumpOn),
                       style: TextStyle(
                         fontSize: 16,
-                        color: _valveOpen ? Colors.green[800] : Colors.red[800],
+                        color: _pumpOn ? Colors.green[800] : Colors.red[800],
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -247,28 +310,67 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-            Switch(
-              value: _valveOpen,
-              onChanged: (value) async {
-                setState(() {
-                  _valveOpen = value;
-                });
-                widget.onValveToggle(value);
-
-                try {
-                  await _dbRef.child('waterPump').set(value ? "ON" : "OFF");
-                  await _dbRef.child('manualOverride').set(value);
-                } catch (e) {
-                  print("Failed to update waterPump or manualOverride: $e");
-                }
-              },
-              activeColor: Colors.green[700],
-              activeTrackColor: Colors.green[300],
-              inactiveThumbColor: Colors.red[400],
-              inactiveTrackColor: Colors.red[200],
+            // Show switch only in manual mode, but always reserve space
+            Opacity(
+              opacity: _manualMode ? 1.0 : 0.0,
+              child: Switch(
+                value: _pumpOn,
+                onChanged: _manualMode
+                    ? (value) async {
+                        await _updatePumpState(value);
+                      }
+                    : null, // Disable in automatic mode
+                activeColor: Colors.green[700],
+                activeTrackColor: Colors.green[300],
+                inactiveThumbColor: Colors.red[400],
+                inactiveTrackColor: Colors.red[200],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildModeSwitch() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Automatic',
+            style: TextStyle(
+              fontWeight: !_manualMode ? FontWeight.bold : FontWeight.normal,
+              color: !_manualMode ? Colors.green[800] : Colors.black54,
+              fontSize: 16,
+            ),
+          ),
+          Switch(
+            value: _manualMode,
+            onChanged: (value) async {
+              await _setManualMode(value);
+              // If switching to automatic, update pump state from DB
+              if (!value) {
+                final snapshot = await _dbRef.child('waterPump').get();
+                setState(() {
+                  _pumpOn = snapshot.value == "ON";
+                });
+              }
+            },
+            activeColor: Colors.green[700],
+            inactiveThumbColor: Colors.blue[400],
+            inactiveTrackColor: Colors.blue[100],
+          ),
+          Text(
+            'Manual',
+            style: TextStyle(
+              fontWeight: _manualMode ? FontWeight.bold : FontWeight.normal,
+              color: _manualMode ? Colors.green[800] : Colors.black54,
+              fontSize: 16,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -318,7 +420,7 @@ class DetailPage extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (title == 'Soil Moisture' && data['detail'] != null) ...[
+                  if (title == 'Compsot Moisture' && data['detail'] != null) ...[
                     const SizedBox(height: 16),
                     Text(
                       data['detail'],
@@ -361,7 +463,7 @@ class DetailPage extends StatelessWidget {
                   _buildRecommendationText(data['value'], title),
                   const SizedBox(height: 16),
 
-                  if (title == 'Soil Moisture') ...[
+                  if (title == 'Compost Moisture') ...[
                     const Divider(),
                     const SizedBox(height: 8),
                     const Text(
@@ -376,16 +478,16 @@ class DetailPage extends StatelessWidget {
                     _buildVermicompostingTip(
                       Icons.water_drop,
                       'Ideal Moisture Range',
-                      '60–70% is perfect for worms. They breathe through their skin and need moist conditions.',
+                      '42–60% is perfect for worms. They breathe through their skin and need moist conditions.',
                     ),
                     _buildVermicompostingTip(
                       Icons.warning,
-                      'Too Dry (<40%)',
+                      'Too Dry (<42%)',
                       'Worms will dehydrate and composting slows down. Add moist bedding like soaked coconut coir.',
                     ),
                     _buildVermicompostingTip(
                       Icons.warning,
-                      'Too Wet (>80%)',
+                      'Too Wet (>60%)',
                       'Can cause anaerobic conditions and worm drowning. Add dry bedding like shredded newspaper.',
                     ),
                     _buildVermicompostingTip(
@@ -408,16 +510,16 @@ class DetailPage extends StatelessWidget {
                     _buildVermicompostingTip(
                       Icons.thermostat,
                       'Optimal Range',
-                      '15°C to 25°C is ideal for red wigglers. Above 30°C can harm them.',
+                      '25°C to 35°C is ideal for red wigglers. Above 35°C can harm them.',
                     ),
                     _buildVermicompostingTip(
                       Icons.ac_unit,
-                      'Too Cold (<10°C)',
+                      'Too Cold (<20°C)',
                       'Worms slow down or die. Add insulation like straw or move bin indoors.',
                     ),
                     _buildVermicompostingTip(
                       Icons.wb_sunny,
-                      'Too Hot (>30°C)',
+                      'Too Hot (>35°C)',
                       'Worms may try to escape. Cool the bin or move it to a shaded area.',
                     ),
                   ] else if (title == 'Water Level') ...[
@@ -478,37 +580,35 @@ class DetailPage extends StatelessWidget {
     double numericValue = value is int ? value.toDouble() : value;
     
     switch (title) {
-      case 'Soil Moisture':
+      case 'Compost Moisture':
         if (numericValue < 30) {
-          recommendation = 'The soil is too dry. Water the plants immediately.';
+          recommendation = 'The compost is too dry. Water the compost immediately.';
         } else if (numericValue < 50) {
-          recommendation = 'Soil moisture is low. Consider watering soon.';
+          recommendation = 'Compost moisture is low. Consider watering soon.';
         } else if (numericValue < 70) {
           recommendation = 'Ideal moisture level. Maintain current watering schedule.';
         } else {
-          recommendation = 'Soil is too wet. Reduce watering to prevent root rot.';
+          recommendation = 'Compost is too wet. Reduce watering to prevent root rot.';
         }
         break;
       case 'Temperature':
         if (numericValue < 15) {
-          recommendation = 'Temperature is too low for most plants. Consider moving to warmer area.';
+          recommendation = 'Temperature is too low for composting. Consider moving to warmer area.';
         } else if (numericValue < 22) {
           recommendation = 'Slightly cool. Monitor plant health.';
         } else if (numericValue < 28) {
-          recommendation = 'Ideal temperature range for most plants.';
+          recommendation = 'Ideal temperature range for composting.';
         } else {
           recommendation = 'Temperature is too high. Provide shade and increase watering.';
         }
         break;
       case 'Water Level':
-        if (numericValue < 20) {
-          recommendation = 'Water reservoir critically low. Refill immediately.';
-        } else if (numericValue < 50) {
-          recommendation = 'Water level is getting low. Plan to refill soon.';
-        } else if (numericValue < 80) {
-          recommendation = 'Adequate water supply. No immediate action needed.';
+        if (value.toString().toUpperCase() == 'LOW') {
+          recommendation = 'Water reservoir is LOW. Refill immediately.';
+        } else if (value.toString().toUpperCase() == 'HIGH') {
+          recommendation = 'Water reservoir is FULL.';
         } else {
-          recommendation = 'Water reservoir is full.';
+          recommendation = 'Water level status unknown.';
         }
         break;
       case 'Vermiwash Level':
