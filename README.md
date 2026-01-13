@@ -7,7 +7,7 @@ A Flutter application for monitoring and managing your vermicomposting system. T
 - **Dashboard:** View live data for moisture, temperature, water tank, and vermitea levels.
 - **Notifications:** Get alerts for important events (e.g., low moisture, tank refill needed).
 - **Contact Tab:** Contact support or view help information.
-- **Valve Control:** Remotely toggle the valve state.
+- **Pump Control:** Remotely toggle the pump state.
 - **Portrait Mode Only:** The app is locked to portrait orientation for best usability.
 
 ## Getting Started
