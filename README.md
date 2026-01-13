@@ -1,47 +1,46 @@
 # VermicompostApp
 
-A Flutter application for monitoring and managing your vermicomposting system. The app provides real-time data on moisture, temperature, water level, and vermitea level, and includes notification and contact features.
+A Flutter application for monitoring and managing a vermicomposting system. The app reads live sensor values (moisture, temperature, water tank level, vermiwash/vermitea level), displays a dashboard, sends notifications for important events, and provides a contact/help tab and basic valve control.
 
-## Features
+## Key Features
 
-- **Dashboard:** View live data for moisture, temperature, water tank, and vermitea levels.
-- **Notifications:** Get alerts for important events (e.g., low moisture, tank refill needed).
-- **Contact Tab:** Contact support or view help information.
-- **Valve Control:** Remotely toggle the valve state.
-- **Portrait Mode Only:** The app is locked to portrait orientation for best usability.
+- Dashboard with live sensor values (temperature, moisture, water tank, vermiwash)
+- Push notifications (Firebase Cloud Messaging) with background handler
+- Contact / help tab
+- Valve/pump toggle from the app
+- Locked to portrait orientation for consistent UI
 
-## Getting Started
+## Repository Layout
 
-### Prerequisites
+- `lib/main.dart` — App entry, navigation, Firebase + FCM setup, and background message handler
+- `lib/home_page.dart` — Dashboard view and valve control
+- `lib/notifications.dart` — Notification UI and list
+- `lib/contacttab.dart` — Contact/help tab
+- `lib/notification_service.dart` — Local notification wrapper and checks
+- `android/`, `ios/`, `windows/`, `web/` — Platform code and configs
 
-- [Flutter SDK](https://flutter.dev/docs/get-started/install)
-- Dart
-- A device or emulator
+## Prerequisites
 
-### Installation
+- Flutter SDK (stable channel) — see the official Flutter docs
+- Dart (comes with Flutter)
+- Android Studio / AVD or a connected Android device (or Windows desktop target)
+- A Firebase project and platform config files (`google-services.json` for Android, `GoogleService-Info.plist` for iOS)
 
-1. **Clone the repository:**
-   ```sh
-   git clone https://github.com/your-username/vermicompost_app.git
-   cd vermicompost_app/vc_monitoring_systemv1
-   ```
+## Setup (Windows / PowerShell)
 
-2. **Install dependencies:**
-   ```sh
-   flutter pub get
-   ```
+1. Open PowerShell and change to the Flutter project folder:
+```powershell
+cd C:\VermicompostApp\vc_monitoring_systemv1
+```
 
-3. **Run the app:**
-   ```sh
-   flutter run
-   ```
+2. Run `flutter pub get` to install dependencies.
 
-## Project Structure
+3. Connect your Android device or start an emulator.
 
-- `lib/main.dart` - App entry point and main navigation.
-- `lib/home_page.dart` - Dashboard with monitoring cards.
-- `lib/notifications.dart` - Notification tab and logic.
-- `lib/contacttab.dart` - Contact/help tab.
+4. Run the app:
+```powershell
+flutter run
+```
 
 ## Customization
 
