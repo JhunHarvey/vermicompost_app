@@ -40,7 +40,8 @@ A Flutter application for monitoring and managing your vermicomposting system. T
 
 - `lib/main.dart` - App entry point and main navigation.
 - `lib/home_page.dart` - Dashboard with monitoring cards.
-- `lib/notifications.dart` - Notification tab and logic.
+- `lib/notifications.dart` - Notification tab.
+- `lib/notification_service.dart` - Notification logic.
 - `lib/contacttab.dart` - Contact/help tab.
 
 ## Customization
@@ -48,9 +49,5 @@ A Flutter application for monitoring and managing your vermicomposting system. T
 - **Logo:** Replace `assets/images/logo.png` with your own logo.
 - **Theme:** Modify `ThemeData` in `main.dart` for custom fonts and colors.
 - **Notification Logic:** Update `NotificationItem` list in `notifications.dart` for your own alerts.
-
-## License
-
-This project is licensed under the MIT License.
 
 ---
