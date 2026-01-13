@@ -4,22 +4,15 @@ A Flutter application for monitoring and managing a vermicomposting system. The 
 
 ## Key Features
 
-- Dashboard with live sensor values (temperature, moisture, water tank, vermiwash)
-- Push notifications (Firebase Cloud Messaging) with background handler
-- Contact / help tab
-- Valve/pump toggle from the app
-- Locked to portrait orientation for consistent UI
+- **Dashboard:** View live data for moisture, temperature, water tank, and vermitea levels.
+- **Notifications:** Get alerts for important events (e.g., low moisture, tank refill needed).
+- **Contact Tab:** Contact support or view help information.
+- **Valve Control:** Remotely toggle the valve state.
+- **Portrait Mode Only:** The app is locked to portrait orientation for best usability.
 
-## Repository Layout
+## Getting Started
 
-- `lib/main.dart` — App entry, navigation, Firebase + FCM setup, and background message handler
-- `lib/home_page.dart` — Dashboard view and valve control
-- `lib/notifications.dart` — Notification UI and list
-- `lib/contacttab.dart` — Contact/help tab
-- `lib/notification_service.dart` — Local notification wrapper and checks
-- `android/`, `ios/`, `windows/`, `web/` — Platform code and configs
-
-## Prerequisites
+### Prerequisites
 
 - Flutter SDK (stable channel) — see the official Flutter docs
 - Dart (comes with Flutter)
@@ -42,14 +35,17 @@ cd C:\VermicompostApp\vc_monitoring_systemv1
 flutter run
 ```
 
+## Project Structure
+
+- `lib/main.dart` - App entry point and main navigation.
+- `lib/home_page.dart` - Dashboard with monitoring cards.
+- `lib/notifications.dart` - Notification tab and logic.
+- `lib/contacttab.dart` - Contact/help tab.
+
 ## Customization
 
 - **Logo:** Replace `assets/images/logo.png` with your own logo.
 - **Theme:** Modify `ThemeData` in `main.dart` for custom fonts and colors.
 - **Notification Logic:** Update `NotificationItem` list in `notifications.dart` for your own alerts.
-
-## License
-
-This project is licensed under the MIT License.
 
 ---
