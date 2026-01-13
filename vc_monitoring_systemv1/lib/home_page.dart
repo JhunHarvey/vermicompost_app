@@ -478,16 +478,16 @@ class DetailPage extends StatelessWidget {
                     _buildVermicompostingTip(
                       Icons.water_drop,
                       'Ideal Moisture Range',
-                      '42–60% is perfect for worms. They breathe through their skin and need moist conditions.',
+                      '50–80% is perfect for worms. They breathe through their skin and need moist conditions.',
                     ),
                     _buildVermicompostingTip(
                       Icons.warning,
-                      'Too Dry (<42%)',
+                      'Too Dry (<50%)',
                       'Worms will dehydrate and composting slows down. Add moist bedding like soaked coconut coir.',
                     ),
                     _buildVermicompostingTip(
                       Icons.warning,
-                      'Too Wet (>60%)',
+                      'Too Wet (>80%)',
                       'Can cause anaerobic conditions and worm drowning. Add dry bedding like shredded newspaper.',
                     ),
                     _buildVermicompostingTip(

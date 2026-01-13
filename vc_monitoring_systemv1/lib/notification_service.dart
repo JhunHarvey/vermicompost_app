@@ -54,7 +54,7 @@ class NotificationService {
     final jsonList = _notificationHistory.map((n) => jsonEncode({
       'title': n.title,
       'message': n.message,
-      'time': n.time,  // Already formatted as string
+      'time': n.time,  
       'isUnread': n.isUnread,
     })).toList();
     await prefs.setStringList('notifications', jsonList);
@@ -84,6 +84,12 @@ class NotificationService {
   // ================= NOTIFICATION MANAGEMENT =================
   Future<void> markAsRead(NotificationItem notification) async {
     notification.isUnread = false;
+    await _saveNotifications();
+    _notificationStreamController.add(notification);
+  }
+
+  Future<void> deleteNotification(NotificationItem notification) async {
+    _notificationHistory.remove(notification);
     await _saveNotifications();
     _notificationStreamController.add(notification);
   }
@@ -154,37 +160,31 @@ class NotificationService {
   Future<void> checkSensorValuesAndNotify({
     required double moisture,
     required double temperature,
-    required String waterLevel, // <-- Change to String
+    required String waterLevel, 
     required String vermiwashLevel,
   }) async {
     // Moisture alerts
-    if (moisture < 42) {
+    if (moisture <= 50) {
       await _throttledNotification(
         key: 'low_moisture',
         title: "Critical Moisture Alert",
-        body: "Moisture is low at ${moisture.toStringAsFixed(1)}%",
-        cooldown: Duration(seconds: 15),
+        body: "Moisture is low",
+        cooldown: Duration(seconds: 300),
       );
-    } else if (moisture > 60) {
-      await _throttledNotification(
-        key: 'high_moisture',
-        title: "High Moisture Alert",
-        body: "Moisture is high at ${moisture.toStringAsFixed(1)}%",
-      );
-    }
-    
+    } 
+
         // Temperature alerts
     if (temperature < 15) {
       await _throttledNotification(
         key: 'low_temperature',
         title: "Low Temperature Alert",
-        body: "Temperature is low at ${temperature.toStringAsFixed(1)}°C",
+        body: "Temperature is low",
       );
-    } else if (temperature > 35) {
+    } else if (temperature >= 35) {
       await _throttledNotification(
         key: 'high_temperature',
         title: "High Temperature Alert",
-        body: "Temperature is high at ${temperature.toStringAsFixed(1)}°C please cool or put shade to the compost bin",
+        body: "Temperature is high please cool or put shade to the compost bin",
       );
     }
 
@@ -194,7 +194,7 @@ class NotificationService {
         key: 'low_water_level',
         title: "Low Water Level",
         body: "Water level is LOW. Please refill.",
-        cooldown: Duration(seconds: 10), // Reduce cooldown
+        cooldown: Duration(seconds: 300), 
       );
     }
 
@@ -214,10 +214,6 @@ class NotificationService {
     _notificationHistory.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('notifications');
-    // Remove this line:
-    // _notificationStreamController.add(NotificationItem(isUnread: false));
-    // Instead, you can notify listeners that the list is empty if needed:
-    // _notificationStreamController.addStream(Stream.empty());
   }
 
   String _formatTime(DateTime time) {

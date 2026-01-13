@@ -322,11 +322,13 @@ class NotificationTabState extends State<notifications> {
                         notification: notification,
                         showUnreadOnly: showUnreadOnly,
                         onMarkAsRead: () {
+                          _notificationService.markAsRead(notification);
                           setState(() {
                             notification.isUnread = false;
                           });
                         },
                         onDelete: () {
+                          _notificationService.deleteNotification(notification);
                           setState(() {
                             notifications.remove(notification);
                           });
